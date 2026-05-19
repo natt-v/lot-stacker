@@ -27,11 +27,24 @@
             </button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-gray-700 p-4 rounded-lg">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-gray-700 p-4 rounded-lg">
             <div>
-                <label class="block text-sm text-gray-300 mb-1">Current Balance ($)</label>
+                <label class="block text-sm text-gray-300 mb-1">Currency</label>
+                <select id="currency-select" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white font-bold focus:outline-none focus:border-blue-500" onchange="updateCurrency()">
+                    <option value="$">USD ($)</option>
+                    <option value="€">EUR (€)</option>
+                    <option value="£">GBP (£)</option>
+                    <option value="฿">THB (฿)</option>
+                    <option value="¥">JPY (¥)</option>
+                    <option value="A$">AUD (A$)</option>
+                    <option value="C$">CAD (C$)</option>
+                    <option value="Fr">CHF (Fr)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm text-gray-300 mb-1" id="balance-label">Current Balance ($)</label>
                 <div class="flex items-center space-x-2">
-                    <input type="range" id="balanceSlider" min="10" max="500" step="1" value="49.6" class="w-1/2 cursor-pointer capture-hide-slider" oninput="syncInput('balance', this.value); calculate()">
+                    <input type="range" id="balanceSlider" min="10" max="5000" step="1" value="49.6" class="w-1/2 cursor-pointer capture-hide-slider" oninput="syncInput('balance', this.value); calculate()">
                     <input type="number" id="balance" value="49.6" step="0.1" class="w-1/2 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white font-mono" oninput="syncInput('balanceSlider', this.value); calculate()">
                 </div>
             </div>
@@ -173,23 +186,31 @@
         let positions = [{ id: 1, lot: 0.04, price: 4700.00 }];
         let nextId = 2;
         let chartInstance = null;
-        
-        // 🆕 ตัวแปรเช็คว่า User พิมพ์แก้มือเองหรือยัง
         let isTargetCustomized = false; 
+        
+        // 🆕 ตัวแปรเก็บสกุลเงิน เริ่มต้นที่ $
+        let currencySym = '$';
 
         function syncInput(targetId, value) {
             document.getElementById(targetId).value = value;
         }
 
-        // 🆕 ฟังก์ชันคำนวณ SL/TP อัตโนมัติ อิงจากไม้ 1
+        // 🆕 ฟังก์ชันรับค่าสกุลเงินใหม่ แล้วคำนวณกราฟิกหน้าจอใหม่ทั้งหมด
+        function updateCurrency() {
+            currencySym = document.getElementById('currency-select').value;
+            // อัปเดต Label ตรง Balance
+            document.getElementById('balance-label').innerText = `Current Balance (${currencySym})`;
+            // สั่งอัปเดตตัวเลขอื่นๆ 
+            calculate();
+        }
+
         function autoSetTargets(forceReset = false) {
             if (positions.length === 0) return;
-            // ถ้า User แก้มือเองไปแล้ว จะไม่คำนวณทับ (ยกเว้นกดปุ่ม Reset หรือ เปลี่ยนฝั่ง)
             if (isTargetCustomized && !forceReset) return; 
 
             const p1 = positions[0].price;
             const direction = document.getElementById('direction').value;
-            const offset = 10; // ระยะ 1000 จุด = $10
+            const offset = 10; 
 
             if (direction === 'buy') {
                 document.getElementById('sl-price').value = (p1 - offset).toFixed(2);
@@ -203,7 +224,6 @@
                 document.getElementById('tp3-price').value = (p1 - (offset * 3)).toFixed(2);
             }
             
-            // ถ้ารีเซ็ตให้กลับมา Auto แปลว่ายกเลิกการปรับแก้เอง
             if (forceReset) isTargetCustomized = false; 
         }
 
@@ -257,7 +277,6 @@
                     document.getElementById(`${field}-slider-${id}`).value = val;
                 }
                 
-                // 🆕 ถ้าราคาของ ไม้ที่ 1 โดนแก้ ให้ลองขยับเป้า SL/TP ตามด้วย (ถ้ายังไม่ได้ Custom)
                 if (id === positions[0].id && field === 'price') {
                     autoSetTargets(false); 
                 }
@@ -310,16 +329,17 @@
             return diff * totalLot * 100;
         }
 
+        // 🆕 อัปเดตฟังก์ชันโชว์เงิน ให้ใช้ currencySym แทน $ แบบตายตัว
         function formatPL(amount, elementId) {
             const el = document.getElementById(elementId);
             if (amount > 0) {
-                el.innerText = `+$${amount.toFixed(2)}`;
+                el.innerText = `+${currencySym}${amount.toFixed(2)}`;
                 el.className = "text-xl font-black text-green-500";
             } else if (amount < 0) {
-                el.innerText = `-$${Math.abs(amount).toFixed(2)}`;
+                el.innerText = `-${currencySym}${Math.abs(amount).toFixed(2)}`;
                 el.className = "text-xl font-black text-red-500";
             } else {
-                el.innerText = `$0.00`;
+                el.innerText = `${currencySym}0.00`;
                 el.className = "text-xl font-black text-gray-500";
             }
         }
@@ -403,8 +423,9 @@
             updateRR(plTP3, plSL, 'rr-tp3');
         }
 
+        // 🆕 อัปเดต Max Risk ฝั่ง UI ให้ใช้สกุลเงินที่เลือก
         function updateUI(maxRisk, totalLot, avgPrice, stopOutPrice, points) {
-            document.getElementById('res-risk').innerText = `-$${maxRisk.toFixed(2)}`;
+            document.getElementById('res-risk').innerText = `-${currencySym}${maxRisk.toFixed(2)}`;
             document.getElementById('res-lot').innerText = totalLot.toFixed(2);
             document.getElementById('res-avgprice').innerText = avgPrice.toFixed(2);
             document.getElementById('res-stopout').innerText = stopOutPrice.toFixed(2);
@@ -412,7 +433,7 @@
             const distEl = document.getElementById('res-distance');
             distEl.innerText = `${points.toFixed(0)} pts`;
             
-            let colorHex = '#10B981'; // Green
+            let colorHex = '#10B981'; 
             if (points < 500) {
                 distEl.className = "text-3xl font-black text-center mb-2 text-red-500";
                 colorHex = '#EF4444'; 
@@ -438,12 +459,36 @@
 
             const captureArea = document.getElementById('capture-area');
 
+            const formElements = captureArea.querySelectorAll('input[type="number"], select');
+            const replacements = [];
+            
+            formElements.forEach(el => {
+                const div = document.createElement('div');
+                div.className = el.className;
+                div.classList.remove('appearance-none'); 
+                div.classList.add('flex', 'items-center'); 
+                if (el.classList.contains('text-center')) {
+                    div.classList.add('justify-center');
+                }
+                
+                div.innerText = el.tagName === 'SELECT' ? el.options[el.selectedIndex].text : el.value;
+                
+                el.style.display = 'none'; 
+                el.parentNode.insertBefore(div, el); 
+                replacements.push({ original: el, fake: div });
+            });
+
             html2canvas(captureArea, {
                 backgroundColor: '#1f2937', 
                 scale: 2 
             }).then(canvas => {
                 hideElements.forEach(el => el.style.display = '');
                 sliders.forEach(el => el.style.display = '');
+
+                replacements.forEach(rep => {
+                    rep.fake.remove(); 
+                    rep.original.style.display = ''; 
+                });
 
                 const link = document.createElement('a');
                 link.download = 'LotStacker_Plan.png';
@@ -452,9 +497,8 @@
             });
         }
 
-        // 🆕 Initial Setup
         initChart();
-        autoSetTargets(true); // ตั้งค่า Default ให้ตั้งแต่โหลดหน้าจอครั้งแรก
+        autoSetTargets(true); 
         renderPositions();
     </script>
 </body>
