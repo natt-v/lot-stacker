@@ -7,6 +7,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
@@ -16,55 +17,68 @@
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans p-4 md:p-8">
 
-    <div class="max-w-4xl mx-auto bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
-        <h1 class="text-2xl font-bold text-blue-400 mb-6 border-b border-gray-700 pb-2">🎲 Lot Stacker Pro</h1>
+    <div id="capture-area" class="max-w-4xl mx-auto bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
+        
+        <div class="flex justify-between items-center border-b border-gray-700 pb-2 mb-6">
+            <h1 class="text-2xl font-bold text-blue-400">🎲 Lot Stacker Pro</h1>
+            <button onclick="takeScreenshot()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg font-bold flex items-center space-x-2 transition duration-200 shadow-lg hide-on-capture">
+                <span>📸</span>
+                <span>Save Plan</span>
+            </button>
+        </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 bg-gray-700 p-4 rounded-lg">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-gray-700 p-4 rounded-lg">
             <div>
                 <label class="block text-sm text-gray-300 mb-1">Current Balance ($)</label>
                 <div class="flex items-center space-x-2">
-                    <input type="range" id="balanceSlider" min="10" max="500" step="1" value="50" class="w-1/2 cursor-pointer" oninput="syncInput('balance', this.value); calculate()">
-                    <input type="number" id="balance" value="50" step="0.1" class="w-1/2 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white font-mono" oninput="syncInput('balanceSlider', this.value); calculate()">
+                    <input type="range" id="balanceSlider" min="10" max="500" step="1" value="49.6" class="w-1/2 cursor-pointer capture-hide-slider" oninput="syncInput('balance', this.value); calculate()">
+                    <input type="number" id="balance" value="49.6" step="0.1" class="w-1/2 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white font-mono" oninput="syncInput('balanceSlider', this.value); calculate()">
                 </div>
             </div>
             <div>
                 <label class="block text-sm text-gray-300 mb-1">Stop Out Level (%)</label>
                 <div class="flex items-center space-x-2">
-                    <input type="range" id="stopoutSlider" min="0" max="100" step="1" value="20" class="w-1/2 cursor-pointer" oninput="syncInput('stopout', this.value); calculate()">
+                    <input type="range" id="stopoutSlider" min="0" max="100" step="1" value="20" class="w-1/2 cursor-pointer capture-hide-slider" oninput="syncInput('stopout', this.value); calculate()">
                     <input type="number" id="stopout" value="20" step="1" class="w-1/2 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white font-mono" oninput="syncInput('stopoutSlider', this.value); calculate()">
                 </div>
             </div>
             <div>
                 <label class="block text-sm text-gray-300 mb-1">Trade Direction</label>
-                <select id="direction" class="w-full bg-gray-900 border border-gray-600 rounded px-3 text-white font-bold focus:outline-none focus:border-blue-500 h-[34px]" onchange="calculate()">
+                <select id="direction" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white font-bold focus:outline-none focus:border-blue-500" onchange="autoSetTargets(true); calculate()">
                     <option value="buy">BUY (Long)</option>
                     <option value="sell">SELL (Short)</option>
                 </select>
             </div>
         </div>
 
+        <div class="mb-2 flex justify-between items-end">
+            <h2 class="text-sm font-bold text-gray-400">🎯 Target Targets (Base on Order #1)</h2>
+            <button onclick="autoSetTargets(true); calculate()" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded hide-on-capture transition">
+                🔄 Auto Default (1:1, 1:2, 1:3)
+            </button>
+        </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-gray-800 border border-gray-600 p-4 rounded-lg">
             <div>
                 <label class="block text-sm text-red-400 font-bold mb-1">Global SL</label>
-                <input type="number" id="sl-price" value="4690" step="0.01" class="w-full bg-gray-900 border border-red-800 rounded px-2 py-1 text-red-300 font-mono text-center focus:border-red-500 outline-none" oninput="calculate()">
+                <input type="number" id="sl-price" step="0.01" class="w-full bg-gray-900 border border-red-800 rounded px-2 py-1 text-red-300 font-mono text-center focus:border-red-500 outline-none" oninput="isTargetCustomized = true; calculate()">
             </div>
             <div>
                 <label class="block text-sm text-green-400 font-bold mb-1">TP 1</label>
-                <input type="number" id="tp1-price" value="4710" step="0.01" class="w-full bg-gray-900 border border-green-800 rounded px-2 py-1 text-green-300 font-mono text-center focus:border-green-500 outline-none" oninput="calculate()">
+                <input type="number" id="tp1-price" step="0.01" class="w-full bg-gray-900 border border-green-800 rounded px-2 py-1 text-green-300 font-mono text-center focus:border-green-500 outline-none" oninput="isTargetCustomized = true; calculate()">
             </div>
             <div>
                 <label class="block text-sm text-green-400 font-bold mb-1">TP 2</label>
-                <input type="number" id="tp2-price" value="4720" step="0.01" class="w-full bg-gray-900 border border-green-800 rounded px-2 py-1 text-green-300 font-mono text-center focus:border-green-500 outline-none" oninput="calculate()">
+                <input type="number" id="tp2-price" step="0.01" class="w-full bg-gray-900 border border-green-800 rounded px-2 py-1 text-green-300 font-mono text-center focus:border-green-500 outline-none" oninput="isTargetCustomized = true; calculate()">
             </div>
             <div>
                 <label class="block text-sm text-green-400 font-bold mb-1">TP 3</label>
-                <input type="number" id="tp3-price" value="4730" step="0.01" class="w-full bg-gray-900 border border-green-800 rounded px-2 py-1 text-green-300 font-mono text-center focus:border-green-500 outline-none" oninput="calculate()">
+                <input type="number" id="tp3-price" step="0.01" class="w-full bg-gray-900 border border-green-800 rounded px-2 py-1 text-green-300 font-mono text-center focus:border-green-500 outline-none" oninput="isTargetCustomized = true; calculate()">
             </div>
         </div>
 
         <div class="mb-4 flex justify-between items-end">
             <h2 class="text-lg font-semibold text-blue-400">📋 Active Positions</h2>
-            <button onclick="addPosition()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-medium transition duration-200">
+            <button onclick="addPosition()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-medium transition duration-200 hide-on-capture">
                 + Add Position
             </button>
         </div>
@@ -76,14 +90,14 @@
                         <th class="p-3 rounded-tl">#</th>
                         <th class="p-3">Lot Size</th>
                         <th class="p-3">Entry Price</th>
-                        <th class="p-3 rounded-tr text-center">Action</th>
+                        <th class="p-3 rounded-tr text-center hide-on-capture">Action</th>
                     </tr>
                 </thead>
                 <tbody id="position-list"></tbody>
             </table>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-2">
             <div class="bg-gray-900 border border-gray-700 rounded-lg p-5 shadow-inner flex flex-col justify-between">
                 <div>
                     <h2 class="text-xl font-bold text-yellow-400 mb-4">📊 Portfolio Risk</h2>
@@ -148,6 +162,10 @@
                 </div>
             </div>
         </div>
+        
+        <div class="text-center text-gray-600 text-xs mt-4">
+            Generated by Lot Stacker Pro 🎲
+        </div>
 
     </div>
 
@@ -155,9 +173,38 @@
         let positions = [{ id: 1, lot: 0.04, price: 4700.00 }];
         let nextId = 2;
         let chartInstance = null;
+        
+        // 🆕 ตัวแปรเช็คว่า User พิมพ์แก้มือเองหรือยัง
+        let isTargetCustomized = false; 
 
         function syncInput(targetId, value) {
             document.getElementById(targetId).value = value;
+        }
+
+        // 🆕 ฟังก์ชันคำนวณ SL/TP อัตโนมัติ อิงจากไม้ 1
+        function autoSetTargets(forceReset = false) {
+            if (positions.length === 0) return;
+            // ถ้า User แก้มือเองไปแล้ว จะไม่คำนวณทับ (ยกเว้นกดปุ่ม Reset หรือ เปลี่ยนฝั่ง)
+            if (isTargetCustomized && !forceReset) return; 
+
+            const p1 = positions[0].price;
+            const direction = document.getElementById('direction').value;
+            const offset = 10; // ระยะ 1000 จุด = $10
+
+            if (direction === 'buy') {
+                document.getElementById('sl-price').value = (p1 - offset).toFixed(2);
+                document.getElementById('tp1-price').value = (p1 + offset).toFixed(2);
+                document.getElementById('tp2-price').value = (p1 + (offset * 2)).toFixed(2);
+                document.getElementById('tp3-price').value = (p1 + (offset * 3)).toFixed(2);
+            } else {
+                document.getElementById('sl-price').value = (p1 + offset).toFixed(2);
+                document.getElementById('tp1-price').value = (p1 - offset).toFixed(2);
+                document.getElementById('tp2-price').value = (p1 - (offset * 2)).toFixed(2);
+                document.getElementById('tp3-price').value = (p1 - (offset * 3)).toFixed(2);
+            }
+            
+            // ถ้ารีเซ็ตให้กลับมา Auto แปลว่ายกเลิกการปรับแก้เอง
+            if (forceReset) isTargetCustomized = false; 
         }
 
         function renderPositions() {
@@ -172,7 +219,7 @@
                     <td class="p-3">
                         <div class="flex items-center space-x-2">
                             <input type="range" id="lot-slider-${pos.id}" min="0.01" max="0.2" step="0.01" value="${pos.lot}" 
-                                   class="w-24 cursor-pointer" oninput="updateField(${pos.id}, 'lot', this.value, 'slider')">
+                                   class="w-24 cursor-pointer capture-hide-slider" oninput="updateField(${pos.id}, 'lot', this.value, 'slider')">
                             <input type="number" id="lot-num-${pos.id}" step="0.01" value="${pos.lot}" 
                                    class="w-20 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-center font-mono"
                                    oninput="updateField(${pos.id}, 'lot', this.value, 'num')">
@@ -181,13 +228,13 @@
                     <td class="p-3">
                         <div class="flex items-center space-x-2">
                             <input type="range" id="price-slider-${pos.id}" min="4500" max="5000" step="0.01" value="${pos.price}" 
-                                   class="w-24 cursor-pointer" oninput="updateField(${pos.id}, 'price', this.value, 'slider')">
+                                   class="w-24 cursor-pointer capture-hide-slider" oninput="updateField(${pos.id}, 'price', this.value, 'slider')">
                             <input type="number" id="price-num-${pos.id}" step="0.01" value="${pos.price}" 
                                    class="w-24 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-center font-mono"
                                    oninput="updateField(${pos.id}, 'price', this.value, 'num')">
                         </div>
                     </td>
-                    <td class="p-3 text-center">
+                    <td class="p-3 text-center hide-on-capture">
                         <button onclick="removePosition(${pos.id})" class="text-red-400 hover:text-red-300 font-bold px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-30">
                             ✖
                         </button>
@@ -209,6 +256,12 @@
                 } else if (source === 'num') {
                     document.getElementById(`${field}-slider-${id}`).value = val;
                 }
+                
+                // 🆕 ถ้าราคาของ ไม้ที่ 1 โดนแก้ ให้ลองขยับเป้า SL/TP ตามด้วย (ถ้ายังไม่ได้ Custom)
+                if (id === positions[0].id && field === 'price') {
+                    autoSetTargets(false); 
+                }
+                
                 calculate();
             }
         }
@@ -240,7 +293,7 @@
                 options: {
                     indexAxis: 'y',
                     responsive: true,
-                    maintainAspectRatio: false, // ต้องการให้กราฟยืดให้เต็มกรงที่ขังไว้
+                    maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: { 
                         x: { beginAtZero: true, suggestedMax: 2000, grid: { color: '#374151' } },
@@ -362,10 +415,10 @@
             let colorHex = '#10B981'; // Green
             if (points < 500) {
                 distEl.className = "text-3xl font-black text-center mb-2 text-red-500";
-                colorHex = '#EF4444'; // Red
+                colorHex = '#EF4444'; 
             } else if (points < 1000) {
                 distEl.className = "text-3xl font-black text-center mb-2 text-yellow-500";
-                colorHex = '#F59E0B'; // Yellow
+                colorHex = '#F59E0B'; 
             } else {
                 distEl.className = "text-3xl font-black text-center mb-2 text-green-500";
             }
@@ -377,7 +430,31 @@
             }
         }
 
+        function takeScreenshot() {
+            const hideElements = document.querySelectorAll('.hide-on-capture');
+            hideElements.forEach(el => el.style.display = 'none');
+            const sliders = document.querySelectorAll('.capture-hide-slider');
+            sliders.forEach(el => el.style.display = 'none');
+
+            const captureArea = document.getElementById('capture-area');
+
+            html2canvas(captureArea, {
+                backgroundColor: '#1f2937', 
+                scale: 2 
+            }).then(canvas => {
+                hideElements.forEach(el => el.style.display = '');
+                sliders.forEach(el => el.style.display = '');
+
+                const link = document.createElement('a');
+                link.download = 'LotStacker_Plan.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+
+        // 🆕 Initial Setup
         initChart();
+        autoSetTargets(true); // ตั้งค่า Default ให้ตั้งแต่โหลดหน้าจอครั้งแรก
         renderPositions();
     </script>
 </body>
