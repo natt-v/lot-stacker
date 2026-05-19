@@ -3,32 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lot Stacker - Risk Calculator</title>
+    <title>Lot Stacker Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Custom scrollbar for a sleek look */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
         ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        /* แต่งสีแถบลาก Slider ให้เข้ากับธีม */
+        input[type=range] { accent-color: #3b82f6; }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans p-4 md:p-8">
 
-    <div class="max-w-3xl mx-auto bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
-        <h1 class="text-2xl font-bold text-blue-400 mb-6 border-b border-gray-700 pb-2">🎲 Lot Stacker Calculator</h1>
+    <div class="max-w-4xl mx-auto bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
+        <h1 class="text-2xl font-bold text-blue-400 mb-6 border-b border-gray-700 pb-2">🎲 Lot Stacker Pro</h1>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-gray-700 p-4 rounded-lg">
             <div>
                 <label class="block text-sm text-gray-300 mb-1">Current Balance ($)</label>
-                <input type="number" id="balance" value="49.6" step="0.1" class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500" oninput="calculate()">
+                <div class="flex items-center space-x-2">
+                    <input type="range" id="balanceSlider" min="10" max="500" step="1" value="49.6" class="w-1/2 cursor-pointer" oninput="syncInput('balance', this.value); calculate()">
+                    <input type="number" id="balance" value="49.6" step="0.1" class="w-1/2 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white font-mono" oninput="syncInput('balanceSlider', this.value); calculate()">
+                </div>
             </div>
             <div>
                 <label class="block text-sm text-gray-300 mb-1">Stop Out Level (%)</label>
-                <input type="number" id="stopout" value="20" step="1" class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500" oninput="calculate()">
+                <div class="flex items-center space-x-2">
+                    <input type="range" id="stopoutSlider" min="0" max="100" step="1" value="20" class="w-1/2 cursor-pointer" oninput="syncInput('stopout', this.value); calculate()">
+                    <input type="number" id="stopout" value="20" step="1" class="w-1/2 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white font-mono" oninput="syncInput('stopoutSlider', this.value); calculate()">
+                </div>
             </div>
             <div>
                 <label class="block text-sm text-gray-300 mb-1">Trade Direction</label>
-                <select id="direction" class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500" onchange="calculate()">
+                <select id="direction" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-white h-[34px] font-bold" onchange="calculate()">
                     <option value="buy">BUY (Long)</option>
                     <option value="sell">SELL (Short)</option>
                 </select>
@@ -46,55 +54,57 @@
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-gray-700 text-sm text-gray-300">
-                        <th class="p-3 rounded-tl">Order #</th>
-                        <th class="p-3">Lot Size</th>
-                        <th class="p-3">Entry Price</th>
+                        <th class="p-3 rounded-tl">#</th>
+                        <th class="p-3">Lot Size (Drag or Type)</th>
+                        <th class="p-3">Entry Price (Drag or Type)</th>
                         <th class="p-3 rounded-tr text-center">Action</th>
                     </tr>
                 </thead>
-                <tbody id="position-list">
-                    </tbody>
+                <tbody id="position-list"></tbody>
             </table>
         </div>
 
-        <div class="bg-gray-900 border border-gray-700 rounded-lg p-5 shadow-inner">
-            <h2 class="text-xl font-bold text-yellow-400 mb-4">📊 Risk Summary</h2>
-            <div class="grid grid-cols-2 gap-4 text-sm md:text-base">
-                <div class="flex justify-between border-b border-gray-700 pb-2">
-                    <span class="text-gray-400">Max Risk Allowed:</span>
-                    <span id="res-risk" class="font-bold text-white">-$0.00</span>
-                </div>
-                <div class="flex justify-between border-b border-gray-700 pb-2">
-                    <span class="text-gray-400">Total Lot Size:</span>
-                    <span id="res-lot" class="font-bold text-white">0.00</span>
-                </div>
-                <div class="flex justify-between border-b border-gray-700 pb-2">
-                    <span class="text-gray-400">Average Price:</span>
-                    <span id="res-avgprice" class="font-bold text-blue-300">0.00</span>
-                </div>
-                <div class="flex justify-between border-b border-gray-700 pb-2">
-                    <span class="text-gray-400">Stop Out Price:</span>
-                    <span id="res-stopout" class="font-bold text-red-400">0.00</span>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-900 border border-gray-700 rounded-lg p-5 shadow-inner">
+            <div>
+                <h2 class="text-xl font-bold text-yellow-400 mb-4">📊 Risk Summary</h2>
+                <div class="space-y-3 text-sm md:text-base">
+                    <div class="flex justify-between border-b border-gray-700 pb-2">
+                        <span class="text-gray-400">Max Risk Allowed:</span>
+                        <span id="res-risk" class="font-bold text-white">-$0.00</span>
+                    </div>
+                    <div class="flex justify-between border-b border-gray-700 pb-2">
+                        <span class="text-gray-400">Total Lot Size:</span>
+                        <span id="res-lot" class="font-bold text-white">0.00</span>
+                    </div>
+                    <div class="flex justify-between border-b border-gray-700 pb-2">
+                        <span class="text-gray-400">Average Price:</span>
+                        <span id="res-avgprice" class="font-bold text-blue-300">0.00</span>
+                    </div>
+                    <div class="flex justify-between border-b border-gray-700 pb-2">
+                        <span class="text-gray-400">Stop Out Price:</span>
+                        <span id="res-stopout" class="font-bold text-red-400">0.00</span>
+                    </div>
                 </div>
             </div>
             
-            <div class="mt-6 bg-gray-800 p-4 rounded-lg border border-red-900 text-center">
-                <p class="text-gray-300 mb-1">Drawdown Buffer from <span class="text-yellow-400">Latest Order</span></p>
-                <div class="text-3xl font-black text-red-500" id="res-distance">
-                    0 pts
-                </div>
-                <p class="text-xs text-gray-500 mt-2">*If this number remains above your target (e.g., 1000 pts), scaling in is relatively safe!</p>
+            <div class="flex flex-col justify-center bg-gray-800 p-4 rounded-lg border border-gray-700">
+                <p class="text-gray-300 mb-2 text-center text-sm">Drawdown Buffer (Points)</p>
+                <div class="text-4xl font-black text-center mb-4" id="res-distance">0 pts</div>
+                <canvas id="riskChart" height="100"></canvas>
             </div>
         </div>
 
     </div>
 
     <script>
-        // Initial state: Start with one default order
-        let positions = [
-            { id: 1, lot: 0.04, price: 4700.00 }
-        ];
+        let positions = [{ id: 1, lot: 0.04, price: 4700.00 }];
         let nextId = 2;
+        let chartInstance = null;
+
+        // ฟังก์ชันซิงค์ค่าระหว่าง Slider กับช่องกรอกตัวเลข
+        function syncInput(targetId, value) {
+            document.getElementById(targetId).value = value;
+        }
 
         function renderPositions() {
             const tbody = document.getElementById('position-list');
@@ -104,20 +114,28 @@
                 const tr = document.createElement('tr');
                 tr.className = 'border-b border-gray-700 hover:bg-gray-750 transition duration-150';
                 tr.innerHTML = `
-                    <td class="p-3 font-medium text-gray-300">#${index + 1}</td>
+                    <td class="p-3 font-medium text-gray-300">${index + 1}</td>
                     <td class="p-3">
-                        <input type="number" step="0.01" value="${pos.lot}" 
-                               class="w-20 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-center focus:border-blue-500"
-                               oninput="updatePos(${pos.id}, 'lot', this.value)">
+                        <div class="flex items-center space-x-2">
+                            <input type="range" min="0.01" max="0.2" step="0.01" value="${pos.lot}" 
+                                   class="w-24 cursor-pointer" oninput="updatePos(${pos.id}, 'lot', this.value)">
+                            <input type="number" step="0.01" value="${pos.lot}" 
+                                   class="w-20 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-center font-mono"
+                                   oninput="updatePos(${pos.id}, 'lot', this.value)">
+                        </div>
                     </td>
                     <td class="p-3">
-                        <input type="number" step="0.01" value="${pos.price}" 
-                               class="w-28 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-center focus:border-blue-500"
-                               oninput="updatePos(${pos.id}, 'price', this.value)">
+                        <div class="flex items-center space-x-2">
+                            <input type="range" min="4500" max="5000" step="1" value="${pos.price}" 
+                                   class="w-24 cursor-pointer" oninput="updatePos(${pos.id}, 'price', this.value)">
+                            <input type="number" step="0.01" value="${pos.price}" 
+                                   class="w-24 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-center font-mono"
+                                   oninput="updatePos(${pos.id}, 'price', this.value)">
+                        </div>
                     </td>
                     <td class="p-3 text-center">
                         <button onclick="removePosition(${pos.id})" class="text-red-400 hover:text-red-300 font-bold px-2 py-1 rounded hover:bg-red-900 hover:bg-opacity-30">
-                            X
+                            ✖
                         </button>
                     </td>
                 `;
@@ -127,7 +145,6 @@
         }
 
         function addPosition() {
-            // Fetch the price of the last position to use as the default for the new one
             let lastPrice = positions.length > 0 ? positions[positions.length - 1].price : 4700;
             positions.push({ id: nextId++, lot: 0.01, price: lastPrice });
             renderPositions();
@@ -142,8 +159,34 @@
             const pos = positions.find(p => p.id === id);
             if (pos) {
                 pos[field] = parseFloat(value) || 0;
-                calculate();
+                renderPositions(); 
             }
+        }
+
+        // เริ่มต้นสร้างกราฟ Chart.js
+        function initChart() {
+            const ctx = document.getElementById('riskChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Buffer'],
+                    datasets: [{
+                        label: 'Points Left',
+                        data: [0],
+                        backgroundColor: '#10B981',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { beginAtZero: true, suggestedMax: 2000, grid: { color: '#374151' } },
+                        y: { display: false }
+                    }
+                }
+            });
         }
 
         function calculate() {
@@ -151,12 +194,9 @@
             const stopoutPct = parseFloat(document.getElementById('stopout').value) || 0;
             const direction = document.getElementById('direction').value;
             
-            // 1. Calculate Maximum Risk Capacity
-            // e.g., Balance 50, Stop Out 20% -> Max Risk = 50 - 10 = $40
             const stopoutAmount = balance * (stopoutPct / 100);
             const maxRisk = balance - stopoutAmount;
 
-            // 2. Calculate Total Lot and Average Price
             let totalLot = 0;
             let sumProduct = 0;
             let latestPrice = 0;
@@ -164,62 +204,63 @@
             positions.forEach(pos => {
                 totalLot += pos.lot;
                 sumProduct += (pos.lot * pos.price);
-                latestPrice = pos.price; // Keep track of the most recently added order
+                latestPrice = pos.price; 
             });
 
             if (totalLot === 0) {
-                document.getElementById('res-risk').innerText = `-$${maxRisk.toFixed(2)}`;
-                document.getElementById('res-lot').innerText = "0.00";
-                document.getElementById('res-avgprice').innerText = "0.00";
-                document.getElementById('res-stopout').innerText = "0.00";
-                document.getElementById('res-distance').innerText = "0 pts";
+                updateUI(maxRisk, 0, 0, 0, 0);
                 return;
             }
 
             const avgPrice = sumProduct / totalLot;
-
-            // 3. Calculate distance to Stop Out in USD
-            // Standard Forex/XAUUSD calculation: 1 Standard Lot moving 1 Point ($0.01) = $1
-            // Distance (Points) = Max Risk / (Total Lot * 100)
             const distanceUsd = maxRisk / (totalLot * 100);
 
-            // 4. Calculate Stop Out Price & Distance from Latest Entry
             let stopOutPrice = 0;
             let pointsFromLatest = 0;
 
             if (direction === 'buy') {
                 stopOutPrice = avgPrice - distanceUsd;
-                // For BUY, Stop Out is below entry. Calculate buffer from the latest/lowest entry.
                 pointsFromLatest = (latestPrice - stopOutPrice) * 100; 
-            } else { // sell
+            } else { 
                 stopOutPrice = avgPrice + distanceUsd;
-                // For SELL, Stop Out is above entry. Calculate buffer from the latest/highest entry.
                 pointsFromLatest = (stopOutPrice - latestPrice) * 100;
             }
 
-            // Prevent negative distance (e.g., if already stopped out before entering)
             if (pointsFromLatest < 0) pointsFromLatest = 0;
 
-            // Update UI elements
+            updateUI(maxRisk, totalLot, avgPrice, stopOutPrice, pointsFromLatest);
+        }
+
+        function updateUI(maxRisk, totalLot, avgPrice, stopOutPrice, points) {
             document.getElementById('res-risk').innerText = `-$${maxRisk.toFixed(2)}`;
             document.getElementById('res-lot').innerText = totalLot.toFixed(2);
             document.getElementById('res-avgprice').innerText = avgPrice.toFixed(2);
             document.getElementById('res-stopout').innerText = stopOutPrice.toFixed(2);
             
-            // Color code the Distance indicator based on risk severity
             const distEl = document.getElementById('res-distance');
-            distEl.innerText = `${pointsFromLatest.toFixed(0)} pts`;
+            distEl.innerText = `${points.toFixed(0)} pts`;
             
-            if (pointsFromLatest < 500) {
-                distEl.className = "text-3xl font-black text-red-500";
-            } else if (pointsFromLatest < 1000) {
-                distEl.className = "text-3xl font-black text-yellow-500";
+            let colorHex = '#10B981'; // Green
+            if (points < 500) {
+                distEl.className = "text-4xl font-black text-center mb-4 text-red-500";
+                colorHex = '#EF4444'; // Red
+            } else if (points < 1000) {
+                distEl.className = "text-4xl font-black text-center mb-4 text-yellow-500";
+                colorHex = '#F59E0B'; // Yellow
             } else {
-                distEl.className = "text-3xl font-black text-green-500";
+                distEl.className = "text-4xl font-black text-center mb-4 text-green-500";
+            }
+
+            // อัปเดตข้อมูลและสีกราฟแบบ Real-time
+            if(chartInstance) {
+                chartInstance.data.datasets[0].data = [points];
+                chartInstance.data.datasets[0].backgroundColor = colorHex;
+                chartInstance.update();
             }
         }
 
-        // Initialize application
+        // โหลดกราฟและข้อมูลเริ่มต้น
+        initChart();
         renderPositions();
     </script>
 </body>
