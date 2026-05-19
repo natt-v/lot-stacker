@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lot Stacker Pro</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -16,14 +17,14 @@
 <body class="bg-gray-900 text-gray-100 font-sans p-4 md:p-8">
 
     <div class="max-w-4xl mx-auto bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700">
-        <h1 class="text-2xl font-bold text-blue-400 mb-6 border-b border-gray-700 pb-2">🎲 Lot Stacker Pro (With R:R)</h1>
+        <h1 class="text-2xl font-bold text-blue-400 mb-6 border-b border-gray-700 pb-2">🎲 Lot Stacker Pro</h1>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 bg-gray-700 p-4 rounded-lg">
             <div>
                 <label class="block text-sm text-gray-300 mb-1">Current Balance ($)</label>
                 <div class="flex items-center space-x-2">
-                    <input type="range" id="balanceSlider" min="10" max="500" step="1" value="49.6" class="w-1/2 cursor-pointer" oninput="syncInput('balance', this.value); calculate()">
-                    <input type="number" id="balance" value="49.6" step="0.1" class="w-1/2 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white font-mono" oninput="syncInput('balanceSlider', this.value); calculate()">
+                    <input type="range" id="balanceSlider" min="10" max="500" step="1" value="50" class="w-1/2 cursor-pointer" oninput="syncInput('balance', this.value); calculate()">
+                    <input type="number" id="balance" value="50" step="0.1" class="w-1/2 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white font-mono" oninput="syncInput('balanceSlider', this.value); calculate()">
                 </div>
             </div>
             <div>
@@ -108,7 +109,9 @@
                 <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
                     <p class="text-gray-400 mb-1 text-center text-xs">Drawdown Buffer (Points to Stop Out)</p>
                     <div class="text-3xl font-black text-center mb-2" id="res-distance">0 pts</div>
-                    <canvas id="riskChart" height="60"></canvas>
+                    <div class="relative w-full h-[80px]">
+                        <canvas id="riskChart"></canvas>
+                    </div>
                 </div>
             </div>
             
@@ -237,7 +240,7 @@
                 options: {
                     indexAxis: 'y',
                     responsive: true,
-                    maintainAspectRatio: false,
+                    maintainAspectRatio: false, // ต้องการให้กราฟยืดให้เต็มกรงที่ขังไว้
                     plugins: { legend: { display: false } },
                     scales: { 
                         x: { beginAtZero: true, suggestedMax: 2000, grid: { color: '#374151' } },
@@ -248,14 +251,12 @@
             });
         }
 
-        // คำนวณ P/L ตามเป้าหมาย
         function calculatePL(targetPrice, avgPrice, totalLot, direction) {
             if (!targetPrice || totalLot === 0) return 0;
             let diff = direction === 'buy' ? (targetPrice - avgPrice) : (avgPrice - targetPrice);
             return diff * totalLot * 100;
         }
 
-        // แสดงผลตัวเลข $
         function formatPL(amount, elementId) {
             const el = document.getElementById(elementId);
             if (amount > 0) {
@@ -270,16 +271,14 @@
             }
         }
 
-        // คำนวณและแสดง Risk/Reward Ratio
         function updateRR(rewardAmount, riskAmount, elementId) {
             const el = document.getElementById(elementId);
-            // จะโชว์ RR ก็ต่อเมื่อ เสี่ยงขาดทุน และ เป้าหมายได้กำไร เท่านั้น
             if (riskAmount < 0 && rewardAmount > 0) {
                 const rr = rewardAmount / Math.abs(riskAmount);
                 el.innerText = `R:R 1:${rr.toFixed(2)}`;
-                el.classList.remove('hidden'); // แสดง Badge
+                el.classList.remove('hidden'); 
             } else {
-                el.classList.add('hidden'); // ซ่อนถ้าตรรกะผิด (เช่น SL อยู่สูงกว่าจุดเข้าตอน Buy)
+                el.classList.add('hidden'); 
             }
         }
 
@@ -336,19 +335,16 @@
 
             updateUI(maxRisk, totalLot, avgPrice, stopOutPrice, pointsFromLatest);
 
-            // คำนวณเงินกำไรขาดทุน P/L
             const plSL = calculatePL(slPrice, avgPrice, totalLot, direction);
             const plTP1 = calculatePL(tp1Price, avgPrice, totalLot, direction);
             const plTP2 = calculatePL(tp2Price, avgPrice, totalLot, direction);
             const plTP3 = calculatePL(tp3Price, avgPrice, totalLot, direction);
 
-            // อัปเดต UI ฝั่งตัวเลข $
             formatPL(plSL, 'pl-sl');
             formatPL(plTP1, 'pl-tp1');
             formatPL(plTP2, 'pl-tp2');
             formatPL(plTP3, 'pl-tp3');
 
-            // อัปเดต UI ฝั่ง Risk/Reward Ratio (เทียบเงินกำไร กับ เงินที่ยอมเสียที่ SL)
             updateRR(plTP1, plSL, 'rr-tp1');
             updateRR(plTP2, plSL, 'rr-tp2');
             updateRR(plTP3, plSL, 'rr-tp3');
